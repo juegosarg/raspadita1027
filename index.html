@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>RASPADITA Quiniela</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#070b16; --panel:#0b1224; --panel2:#0a1222; --edge:#18254a;
+    --text:#eaf1ff; --muted:#9fb0d8; --accent:#60a5fa; --accent2:#facc15;
+    --r:18px; --shadow:0 18px 40px rgba(0,0,0,.5);
+    --fluor:#22ff7a;
+  }
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;height:100%;
+    background:linear-gradient(180deg,#060b16 0%,#0b1220 60%,#08101d 100%);
+    color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  }
+
+  /* Fondo glow */
+  .glow{position:fixed;inset:0;pointer-events:none;z-index:-1;opacity:.35;filter:blur(70px)}
+  .g{position:absolute;border-radius:50%}
+  .g1{width:65vw;height:65vw;background:#1e3a8a;top:-20vw;left:-20vw}
+  .g2{width:60vw;height:60vw;background:#0ea5e9;right:-15vw;top:10vw}
+  .g3{width:55vw;height:55vw;background:#a16207;bottom:-20vw;left:10vw}
+
+  .wrap{min-height:100dvh;display:block}
+  .container{width:100%;max-width:520px;margin:8px auto 16px;padding:12px}
+
+  .panel{
+    background:linear-gradient(180deg,var(--panel),var(--panel2));
+    border:1px solid var(--edge);border-radius:var(--r);box-shadow:var(--shadow);padding:14px
+  }
+  .brandTitle{font-size:26px;font-weight:900;margin:0 0 6px}
+  .subline{font-size:14px;font-weight:900;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-weight:900}
+  .pill-pass{background:rgba(34,255,122,.14);color:var(--fluor);border:1px solid rgba(34,255,122,.35)}
+
+  .status{font-weight:900;font-size:14px;opacity:.95;margin-top:6px;line-height:1.35}
+  .how{font-size:14px;line-height:1.45;margin-top:10px}
+  .how strong{color:#fff}
+
+  /* INICIO */
+  #welcome{display:flex;flex-direction:column;gap:12px;margin-bottom:10px}
+  .input{
+    width:100%;background:#0a1426;color:var(--text);border:1px solid var(--edge);
+    border-radius:14px;padding:14px 16px;font-weight:800;font-size:16px;outline:none
+  }
+  .input.error{border-color:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.25)}
+  .btn{
+    width:100%;padding:14px 16px;border-radius:14px;border:0;font-weight:900;letter-spacing:.2px;
+    background:linear-gradient(135deg,var(--accent2),var(--accent));color:#0b0f1a
+  }
+
+  /* HEADER EN JUEGO */
+  #headerGame{display:none;margin-bottom:10px}
+  #headerGame .brandTitle{margin-bottom:2px}
+
+  /* RASPADITA */
+  #game{display:none;flex-direction:column;gap:12px}
+  .ticket{
+    position:relative;border-radius:18px;overflow:hidden;border:1px solid #3a5aa8;
+    background:linear-gradient(145deg,#0e1d3d,#0a1530);
+  }
+  /* quitamos perforado para evitar el “punto” */
+  .ticket::before,.ticket::after{display:none}
+
+  /* Zona del premio — BLANCO */
+  .prizeLayer{
+    position:relative;display:flex;align-items:center;justify-content:center;min-height:240px;padding:28px;
+    background:#fff;color:#0b1224
+  }
+  .prizeLayer h2{
+    margin:0;
+    font-size:clamp(44px, 12vw, 72px);
+    letter-spacing:.3px;line-height:1.05;
+    transition:transform .35s cubic-bezier(.2,1,.2,1), text-shadow .35s, color .35s;
+    color:#0b1224;
+    user-select:none;
+  }
+  .prizeLayer.revealed h2{
+    transform:scale(1.12);
+    text-shadow:0 0 16px rgba(250,204,21,.55), 0 0 32px rgba(96,165,250,.35);
+    color:#000;
+  }
+  .burst{position:absolute;inset:-30% -10%;pointer-events:none;opacity:0;transform:scale(.6);transition:opacity .45s, transform .45s}
+  .prizeLayer.revealed .burst{opacity:.9;transform:scale(1)}
+  .burst::before{
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(circle at center, rgba(250,204,21,.55) 0%, rgba(96,165,250,.35) 30%, transparent 60%);
+    filter:blur(10px)
+  }
+
+  /* Lámina (foil) */
+  .foilWrap{position:absolute;inset:0}
+  canvas#foil{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+  .foilTexture{
+    position:absolute;inset:0;mix-blend-mode:normal;opacity:.92;
+    background:
+      repeating-linear-gradient(135deg, rgba(255,255,255,.08) 0 8px, rgba(255,255,255,.03) 8px 16px),
+      linear-gradient(180deg,#9ca3af,#4b5563);
+    pointer-events:none;
+  }
+
+  .msg{text-align:center;margin:8px 0 0;font-size:15px}
+
+  /* Felicitación + WhatsApp */
+  .claimBox{display:none;margin-top:12px}
+  .claimCard{
+    border:1px solid #20345f;border-radius:16px;
+    background:linear-gradient(180deg,#0f1f3a,#10324f);
+    padding:14px;text-align:center;box-shadow:var(--shadow)
+  }
+  .claimCard h3{margin:0 0 6px;font-size:18px}
+  .claimCard p{margin:6px 0 12px;font-size:15px;color:#c9ffe5}
+  .wa{display:inline-block;background:#25D366;color:#072;font-weight:900;border-radius:12px;padding:12px 16px;text-decoration:none}
+
+  /* Efecto “polvito” del raspado */
+  .dust{position:absolute;width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.9);pointer-events:none;filter:blur(.3px);opacity:.9}
+  @keyframes drift{to{transform:translate(var(--tx), var(--ty)) scale(.6);opacity:0}}
+</style>
+</head>
+<body>
+<div class="glow"><div class="g g1"></div><div class="g g2"></div><div class="g g3"></div></div>
+<div class="wrap">
+  <div class="container">
+
+    <!-- INICIO -->
+    <div id="welcome" class="panel">
+      <div class="subline">
+        <span>ESMERALDA</span>
+        <span class="pill pill-pass">1027</span>
+      </div>
+      <h1 class="brandTitle">RASPADITA Quiniela</h1>
+
+      <div class="how">
+        <strong>¿Cómo se juega?</strong><br>
+        • Ingresá tu número y tocá <strong>Empezar</strong>.<br>
+        • Raspá el ticket hasta que el número se vea completo: el premio aparece automáticamente.<br>
+        • Premios posibles: <strong>$500, $1.000, $1.500, $2.000, $2.500, $3.000, $5.000, $10.000</strong>.
+      </div>
+
+      <input id="phone" class="input" placeholder="Poné tu número" inputmode="numeric" />
+      <button id="start" class="btn">Empezar ▶</button>
+    </div>
+
+    <!-- HEADER EN JUEGO -->
+    <div id="headerGame" class="panel">
+      <h2 class="brandTitle">RASPADITA Quiniela</h2>
+      <div class="subline">
+        <span>ESMERALDA</span>
+        <span class="pill pill-pass">1027</span>
+      </div>
+      <div class="status">
+        <div id="statusNumber">👤 Número: —</div>
+        <div id="statusTime">🕒 —/—/— —:—:—</div>
+      </div>
+    </div>
+
+    <!-- GAME -->
+    <div id="game">
+      <div class="ticket">
+        <div class="prizeLayer" id="prizeLayer">
+          <div class="burst"></div>
+          <h2 id="prizeText">$—</h2>
+        </div>
+        <div class="foilWrap" id="foilWrap">
+          <div class="foilTexture"></div>
+          <canvas id="foil"></canvas>
+        </div>
+      </div>
+
+      <p class="msg" id="msg"></p>
+
+      <!-- Felicitación + WSP -->
+      <div class="claimBox" id="claimBox">
+        <div class="claimCard">
+          <h3>🎉 ¡Felicidades!</h3>
+          <p id="congrats">Ganaste —.</p>
+          <a id="waBtn" class="wa" target="_blank" rel="noopener">📲 Reclamar por WhatsApp</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Supabase CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+  //================== NUBE / BLOQUEOS ==================
+  const SUPABASE_URL = 'https://ffjsouoobqgxgpqcodgb.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmanNvdW9vYnFneGdwcWNvZGdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1NjUwODksImV4cCI6MjA3MzE0MTA4OX0.NAyaaaarngVnraOo3ruV3MYyO3nBIWZRurT5P24LT3Y';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // CASINO: mismo “scope” que el otro juego, para que el bloqueo sea por casino
+  const CASINO = 'Quiniela ESMERALDA 1027';
+
+  // Admin WhatsApp
+  const ADMIN_WA = '5491123591525';
+
+  //================== CONFIG JUEGO ==================
+  // ================== ODDS / PORCENTAJES ==================
+// 500→20%, 1000→20%, 1500→20%, 2000→15%, 2500→15%, 3000→10%
+const PREMIOS_ODDS = {
+  500:  20,
+  1000: 20,
+  1500: 20,
+  2000: 15,
+  2500: 15,
+  3000: 10
+};
+  const BRUSH = 22;
+  const REVEAL_NUMERO = 0.95;
+  const REVEAL_TOTAL  = 0.75;
+
+  //================== STATE ==================
+  let phone = '';
+  let prize = null;
+  let lock = false;
+  let isDown = false;
+  let ctx, cvs, rect, dpr;
+  let lastX = null, lastY = null;
+// ===== Identidad de juego (nuevo) =====
+const JUEGO = 'RASPADITA 1027'; // mismo nombre que se ve en la UI
+  //================== HELPERS ==================
+  const $ = s => document.querySelector(s);
+  const money = n => '$' + Number(n).toLocaleString('es-AR');
+  const onlyDigits = s => (s||'').replace(/\D+/g,'');
+
+  function tickClock(){
+    const now = new Date();
+    const dopts = { timeZone:'America/Argentina/Buenos_Aires', day:'2-digit', month:'2-digit', year:'numeric' };
+    const topts = { timeZone:'America/Argentina/Buenos_Aires', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true };
+    $('#statusTime').textContent = `🕒 ${new Intl.DateTimeFormat('es-AR', dopts).format(now)}, ${new Intl.DateTimeFormat('es-AR', topts).format(now)}`;
+  }
+  setInterval(tickClock, 1000);
+
+  function vibrate(ms=8){ try{ if(navigator.vibrate) navigator.vibrate(ms); }catch{} }
+
+  function elegirPremio(){
+  const entries = Object.entries(PREMIOS_ODDS).map(([k,v]) => [Number(k), Number(v)]);
+  const total = entries.reduce((a,[,w]) => a + w, 0);
+  let r = Math.random() * total;
+  for (const [valor, peso] of entries){
+    if ((r -= peso) <= 0) return valor;
+  }
+  return entries[0][0]; // fallback por si acaso
+}
+
+  // ==== Tiempo AR y fingerprint (igual que el otro juego) ====
+  function nowAR(){
+    const tz = 'America/Argentina/Buenos_Aires';
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
+    }).formatToParts(now);
+    const get = t => parts.find(p => p.type === t).value;
+    const fecha = `${get('year')}-${get('month')}-${get('day')}`;
+    const horaLocalNoTZ   = `${fecha} ${get('hour')}:${get('minute')}:${get('second')}`;
+    const horaISOconOffset= `${fecha}T${get('hour')}:${get('minute')}:${get('second')}-03:00`;
+    const horaUTC         = new Date(now.getTime()).toISOString();
+    return { fecha, horaLocalNoTZ, horaISOconOffset, horaUTC };
+  }
+
+  async function deviceFingerprint(){
+    try{
+      if (!crypto || !crypto.subtle) throw new Error('no-subtle');
+      const txt = [
+        navigator.userAgent, navigator.platform, navigator.language,
+        (navigator.languages||[]).join(','), screen.width+'x'+screen.height,
+        screen.colorDepth, (Intl.DateTimeFormat().resolvedOptions().timeZone||''),
+        (navigator.hardwareConcurrency||''), (navigator.deviceMemory||'')
+      ].join('|');
+      const enc = new TextEncoder().encode(txt);
+      const buf = await crypto.subtle.digest('SHA-256', enc);
+      return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    }catch{
+      const seed = [navigator.userAgent, navigator.platform, screen.width, screen.height].join('|');
+      let hash = 0; for (let i=0;i<seed.length;i++){ hash=((hash<<5)-hash)+seed.charCodeAt(i); hash|=0; }
+      return 'fp_'+Math.abs(hash).toString(16);
+    }
+  }
+
+  // ==== Bloqueo local (backup) — user+device y device ====
+  function localBlockKeyUser(usuario, fp){
+  const {fecha}=nowAR();
+  return `played:${fecha}:${CASINO}:${JUEGO}:user:${usuario}:${fp}`;
+}
+function localBlockKeyDevice(fp){
+  const {fecha}=nowAR();
+  return `played:${fecha}:${CASINO}:${JUEGO}:device:${fp}`;
+}
+  function setLocalPlayed(usuario, fp){ localStorage.setItem(localBlockKeyUser(usuario, fp), '1'); localStorage.setItem(localBlockKeyDevice(fp), '1'); }
+  function isLocalPlayed(usuario, fp){ return !!localStorage.getItem(localBlockKeyUser(usuario, fp)) || !!localStorage.getItem(localBlockKeyDevice(fp)); }
+
+  // ==== Nube: última jugada de hoy (por casino) ====
+  async function fetchUltimoDeHoy(usuario, fp){
+  const {fecha} = nowAR();
+  const { data, error } = await sb
+    .from('giros')
+    .select('usuario,premio')
+    .eq('fecha', fecha)
+    .eq('casino', CASINO)
+    .eq('juego', JUEGO)              // <— nuevo filtro
+    .or(`usuario.eq.${usuario},fingerprint.eq.${fp}`)
+    .order('hora', { ascending:false })
+    .limit(1);
+  if(error){ console.warn('fetchUltimoDeHoy error', error); return null; }
+  return (data && data[0]) ? data[0] : null;
+}
+
+  // ==== Registrar jugada ====
+  async function registrarGiro({usuario, fp, premio}){
+  const { fecha, horaLocalNoTZ, horaISOconOffset, horaUTC } = nowAR();
+  const { error } = await sb.from('giros').insert([{
+    usuario, fingerprint: fp, premio,
+    fecha,
+    hora: horaISOconOffset,
+    hora_local: horaLocalNoTZ,
+    hora_ar: horaISOconOffset,
+    hora_utc: horaUTC,
+    casino: CASINO,
+    juego: JUEGO                  // <— nuevo campo
+  }]);
+  if(error){ console.warn('insert error', error); }
+}
+
+  // ==== Texto de bloqueo positivo (sin hora) ====
+  function textoYaJugo(phoneIngresado, reg){
+    const uReg = reg?.usuario || phoneIngresado;
+    const esMismo = (uReg === phoneIngresado);
+    const quien = esMismo ? `este usuario <strong>${uReg}</strong>` : `el usuario <strong>${uReg}</strong>`;
+    const premio = reg?.premio ? `<strong>${reg.premio}</strong>` : '—';
+    return `✅ Ya jugaste hoy como ${quien}.<br>Último resultado: ${premio}.<br>💡 Volvé mañana para intentarlo de nuevo.`;
+  }
+
+  //================== RASPADITA (igual UI) ==================
+  function setupCanvas(){
+    cvs = $('#foil');
+    const box = $('#prizeLayer');
+    rect = box.getBoundingClientRect();
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    // Canvas HiDPI
+    cvs.width = Math.floor(rect.width * dpr);
+    cvs.height = Math.floor(rect.height * dpr);
+    cvs.style.width = rect.width + 'px';
+    cvs.style.height = rect.height + 'px';
+    ctx = cvs.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+
+    // Lámina
+    ctx.fillStyle = '#9ca3af';
+    ctx.fillRect(0,0,rect.width,rect.height);
+    for(let y=0;y<rect.height;y+=8){
+      ctx.globalAlpha = 0.06; ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0,y,rect.width,4);
+      ctx.globalAlpha = 1;
+    }
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = BRUSH * 2;
+    ctx.strokeStyle = '#000';
+  }
+
+  function drawLineTo(x,y){
+    if(lastX===null || lastY===null){ lastX = x; lastY = y; }
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    lastX = x; lastY = y;
+  }
+
+  function getXY(e){
+    const r = cvs.getBoundingClientRect();
+    if(e.touches && e.touches[0]){
+      return { x: (e.touches[0].clientX - r.left), y: (e.touches[0].clientY - r.top) };
+    } else {
+      return { x: (e.clientX - r.left), y: (e.clientY - r.top) };
+    }
+  }
+
+  function spawnDust(x, y){
+    const fw = $('#foilWrap');
+    for(let i=0;i<2;i++){
+      const d = document.createElement('i');
+      d.className = 'dust';
+      const dx = (Math.random()*16 - 8), dy = (Math.random()*24 + 12);
+      d.style.left = (x - 3) + 'px';
+      d.style.top  = (y - 3) + 'px';
+      d.style.setProperty('--tx', dx+'px');
+      d.style.setProperty('--ty', dy+'px');
+      d.style.animation = `drift ${400 + Math.random()*300}ms ease-out forwards`;
+      fw.appendChild(d);
+      setTimeout(()=> d.remove(), 800);
+    }
+  }
+
+  function calcRevealedPercent(step=6){
+    const w = Math.floor(rect.width), h = Math.floor(rect.height);
+    const data = ctx.getImageData(0,0,w,h).data;
+    let clear=0,total=0;
+    for(let y=0; y<h; y+=step){
+      for(let x=0; x<w; x+=step){
+        const idx = ((y*w)+x)*4;
+        if(data[idx+3] < 20) clear++;
+        total++;
+      }
+    }
+    return clear/total;
+  }
+
+  function calcNumberAreaRevealed(step=3){
+    const prizeEl = $('#prizeText');
+    const box = $('#prizeLayer').getBoundingClientRect();
+    const nb = prizeEl.getBoundingClientRect();
+    const x = Math.max(0, Math.floor(nb.left - box.left));
+    const y = Math.max(0, Math.floor(nb.top  - box.top));
+    const w = Math.min(Math.floor(nb.width), Math.floor(box.width - x));
+    const h = Math.min(Math.floor(nb.height), Math.floor(box.height - y));
+    if(w<=0 || h<=0) return 0;
+
+    const img = ctx.getImageData(x, y, w, h).data;
+    let clear=0,total=0;
+    for(let yy=0; yy<h; yy+=step){
+      for(let xx=0; xx<w; xx+=step){
+        const idx = ((yy*w)+xx)*4;
+        if(img[idx+3] < 20) clear++;
+        total++;
+      }
+    }
+    return total ? (clear/total) : 0;
+  }
+
+  function bindScratch(){
+    const start = (ev)=>{
+      if(lock) return;
+      isDown = true;
+      const {x,y} = getXY(ev);
+      lastX = x; lastY = y;
+      drawLineTo(x,y);
+      spawnDust(x,y);
+      vibrate(6);
+      ev.preventDefault();
+    };
+    const move  = (ev)=>{
+      if(!isDown || lock) return;
+      const {x,y} = getXY(ev);
+      drawLineTo(x,y);
+      spawnDust(x,y);
+
+      const nPct = calcNumberAreaRevealed(3);
+      if(nPct > 0.85) vibrate(4);
+      if(nPct >= REVEAL_NUMERO){ revelarPremio(true); }
+
+      ev.preventDefault();
+    };
+    const end   = ()=>{
+      isDown = false; lastX = null; lastY = null;
+      if(lock) return;
+      if(calcRevealedPercent(6) >= REVEAL_TOTAL){ revelarPremio(true); }
+    };
+
+    cvs.addEventListener('mousedown', start, {passive:false});
+    cvs.addEventListener('mousemove', move, {passive:false});
+    window.addEventListener('mouseup', end, {passive:true});
+
+    cvs.addEventListener('touchstart', start, {passive:false});
+    cvs.addEventListener('touchmove', move, {passive:false});
+    window.addEventListener('touchend', end, {passive:true});
+  }
+
+  function iniciarJuego(){
+    prize = elegirPremio();
+    lock = false;
+    $('#prizeLayer').classList.remove('revealed');
+    $('#prizeText').textContent = money(prize);
+    $('#msg').textContent = '';
+    $('#claimBox').style.display = 'none';
+    $('#foilWrap').style.display = 'block';
+    setupCanvas();
+    bindScratch();
+  }
+
+  function lanzarConfetti(){
+    const colors = ['#facc15','#60a5fa','#34d399','#fb923c','#e879f9','#f472b6'];
+    const pieces = 80;
+    for(let i=0;i<pieces;i++){
+      const el = document.createElement('i');
+      el.className = 'confetti';
+      const size = 6 + Math.random()*8;
+      el.style.width = size+'px';
+      el.style.height = (size*1.5)+'px';
+      el.style.left = (Math.random()*100)+'vw';
+      el.style.background = colors[Math.floor(Math.random()*colors.length)];
+      const dur = 1200 + Math.random()*1400;
+      el.style.animationDuration = dur+'ms';
+      el.style.transform = `rotate(${Math.random()*360}deg)`;
+      document.body.appendChild(el);
+      setTimeout(()=> el.remove(), dur+220);
+    }
+  }
+
+  async function registrarYBloquear(){
+    try{
+      if(window.__FP){
+        await registrarGiro({ usuario: phone, fp: window.__FP, premio: `GANÓ ${money(prize)}` });
+        setLocalPlayed(phone, window.__FP);
+      }
+    }catch(e){ console.warn('registrarYBloquear fail', e); }
+  }
+
+  function revelarPremio(fullClear=false){
+    if(lock) return;
+    lock = true;
+
+    if(fullClear){
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.clearRect(0,0,rect.width,rect.height);
+      document.getElementById('foilWrap').style.display = 'none';
+    }
+
+    $('#prizeLayer').classList.add('revealed');
+    $('#msg').textContent = '';
+    $('#congrats').textContent = `Felicidades ${phone}, ganaste ${money(prize)}.`;
+    $('#claimBox').style.display = 'block';
+
+    // Mensaje WSP (sin fecha/hora)
+    const text = `Hola, soy el número ${phone}. Gané ${money(prize)} en la RASPADITA de ESMERALDA 1027. Quiero reclamarlo.`;
+    $('#waBtn').href = `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(text)}`;
+
+    lanzarConfetti();
+    vibrate(20);
+
+    // Marca jugado y registra en la nube
+    registrarYBloquear();
+  }
+
+  //================== UI FLOW ==================
+  document.addEventListener('DOMContentLoaded', ()=>{
+    $('#start').addEventListener('click', async ()=>{
+      const val = onlyDigits($('#phone').value.trim());
+      if(!val){ $('#phone').classList.add('error'); $('#phone').focus(); return; }
+      $('#phone').classList.remove('error');
+      phone = val;
+
+      // Mostrar juego
+      $('#welcome').style.display='none';
+      $('#headerGame').style.display='block';
+      $('#game').style.display='flex';
+
+      // llenar header
+      $('#statusNumber').textContent = `👤 Número: ${phone}`;
+      tickClock();
+
+      // ===== Verificación local + nube (rápida) =====
+      try{
+        const fp = await deviceFingerprint();
+        window.__FP = fp;
+
+        const promReg = fetchUltimoDeHoy(phone, fp);
+        const reg = await Promise.race([ promReg, new Promise(res => setTimeout(()=>res(null), 1200)) ]);
+
+        if (isLocalPlayed(phone, fp) || reg){
+          document.body.classList.add('sad');
+          $('#msg').innerHTML = textoYaJugo(phone, reg || {usuario: phone, premio:'—'});
+          // deshabilitar scratch
+          $('#foil').style.pointerEvents='none';
+          return;
+        }
+
+        // chequeo background por si llega más tarde el registro
+        (async ()=>{
+          try{
+            const regBg = await fetchUltimoDeHoy(phone, fp);
+            if (regBg){
+              document.body.classList.add('sad');
+              $('#msg').innerHTML = textoYaJugo(phone, regBg);
+              $('#foil').style.pointerEvents='none';
+            }
+          }catch(e){ console.warn('bg check fail', e); }
+        })();
+
+      }catch(err){
+        console.warn('Verificación falló, sigo sin bloquear nube:', err);
+      }
+
+      iniciarJuego();
+    });
+  });
+</script>
+</body>
+</html>
